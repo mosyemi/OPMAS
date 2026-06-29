@@ -8,7 +8,7 @@ CREATE DATABASE IF NOT EXISTS opmas_db
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-CREATE USER IF NOT EXISTS 'opmas_user'@'localhost' IDENTIFIED BY 'changeme';
+CREATE USER IF NOT EXISTS 'opmas_user'@'localhost' IDENTIFIED BY 'Str0ngP@ssw0rd2026!';
 GRANT ALL PRIVILEGES ON opmas_db.* TO 'opmas_user'@'localhost';
 FLUSH PRIVILEGES;
 

@@ -9,8 +9,8 @@ USE opmas_db;
 INSERT IGNORE INTO users (name, email, role, password) VALUES
     ('System Admin',   'admin@opmas.local',    'admin',    '$2y$12$placeholder_change_on_first_login'),
     ('Plant Operator', 'operator@opmas.local', 'operator', '$2y$12$placeholder_change_on_first_login'),
-    ('Viewer',         'viewer@opmas.local',   'viewer',   '$2y$12$placeholder_change_on_first_login');
-    ('TEST USER','test@opmas.local', 'test', 'test@123')
+    ('Viewer',         'viewer@opmas.local',   'viewer',   '$2y$12$placeholder_change_on_first_login'),
+    ('TEST USER',      'test@opmas.local',    'test',     '$2y$12$placeholder_change_on_first_login');
 
 -- 24 hours of mock sensor readings (every 5 minutes = 288 rows)
 -- MySQL uses a recursive CTE or a numbers table; we use a stored procedure here
