@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── PLC ──────────────────────────────────────────────────────────────────────
+PLC_ENABLED      = os.getenv("PLC_ENABLED", "false").lower() == "true"
 PLC_IP           = os.getenv("PLC_IP", "192.168.1.100")
 PLC_PORT         = int(os.getenv("PLC_PORT", 502))
 POLL_INTERVAL    = int(os.getenv("POLL_INTERVAL", 5))   # seconds

@@ -5,46 +5,71 @@ Polls PLC via Modbus TCP every POLL_INTERVAL seconds and writes to PostgreSQL.
 Run:   python3 main.py
 Prod:  managed by Supervisor (see /etc/supervisor/conf.d/opmas-collector.conf)
 """
+
+import os
 import time
 import logging
 import signal
 import sys
 from logging.handlers import RotatingFileHandler
 
-from config import POLL_INTERVAL, LOG_LEVEL, LOG_FILE
+from config import POLL_INTERVAL, LOG_LEVEL, LOG_FILE, PLC_ENABLED
 from plc.reader import PLCReader
 from services.writer import DataWriter
 from alarms.engine import AlarmEngine
 import database
 
+
 # ── Logging setup ─────────────────────────────────────────────────────────────
 def setup_logging():
+    # Ensure the log directory exists
+    log_dir = os.path.dirname(LOG_FILE)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
     fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
     handlers = [
         logging.StreamHandler(sys.stdout),
-        RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=3),
+        RotatingFileHandler(
+            LOG_FILE,
+            maxBytes=5_000_000,
+            backupCount=3,
+            encoding="utf-8",
+        ),
     ]
-    logging.basicConfig(level=getattr(logging, LOG_LEVEL, "INFO"), format=fmt, handlers=handlers)
+
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+        format=fmt,
+        handlers=handlers,
+        force=True,
+    )
+
 
 logger = logging.getLogger("opmas.main")
 
+
 # ── Graceful shutdown ─────────────────────────────────────────────────────────
 running = True
+
 
 def shutdown(signum, frame):
     global running
     logger.info(f"Received signal {signum} — shutting down gracefully")
     running = False
 
+
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
+
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 def main():
     setup_logging()
     logger.info("OPMAS-001 Collector starting")
 
-    plc    = PLCReader()
+    plc = PLCReader() if PLC_ENABLED else None
     writer = DataWriter()
     alarms = AlarmEngine()
 
@@ -52,6 +77,15 @@ def main():
 
     while running:
         cycle_start = time.time()
+
+        if not PLC_ENABLED:
+            logger.info("PLC polling disabled — skipping cycle.")
+            try:
+                writer.update_heartbeat()
+            except Exception as e:
+                logger.warning(f"Heartbeat update failed: {e}")
+            time.sleep(POLL_INTERVAL)
+            continue
 
         try:
             readings = plc.read_all()
@@ -69,13 +103,13 @@ def main():
 
         except Exception as e:
             consecutive_failures += 1
-            logger.error(f"Collector cycle error (failure #{consecutive_failures}): {e}")
+            logger.exception(
+                f"Collector cycle error (failure #{consecutive_failures}): {e}"
+            )
             writer.record_timeout(consecutive_failures)
 
-        # Sleep for the remainder of the poll interval
         elapsed = time.time() - cycle_start
-        sleep_for = max(0, POLL_INTERVAL - elapsed)
-        time.sleep(sleep_for)
+        time.sleep(max(0, POLL_INTERVAL - elapsed))
 
     database.close_pool()
     logger.info("Collector stopped cleanly")
