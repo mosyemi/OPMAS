@@ -1,0 +1,42 @@
+# OPMAS-001 | .gitignore
+# NEVER commit secrets, credentials, or compiled files
+
+# Environment files — contain secrets
+.env
+.env.local
+.env.production
+/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Node / React
+node_modules/
+frontend/build/
+npm-debug.log*
+
+# PHP / Laravel (when added)
+vendor/
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+bootstrap/cache/
+
+# Logs
+*.log
+backend/logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

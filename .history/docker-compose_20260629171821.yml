@@ -1,0 +1,87 @@
+services:
+
+  mysql:
+    image: mysql:8.4
+
+    container_name: opmas_mysql
+
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_DATABASE: opmas_db
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD","mysqladmin","ping","-h","localhost","-pchangeme"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  laravel:
+
+    build:
+      context: ./laravel-api
+
+    container_name: opmas_laravel
+
+    restart: unless-stopped
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    working_dir: /var/www
+
+    volumes:
+      - ./laravel-api:/var/www
+
+    ports:
+      - "8080:8000"
+
+  frontend:
+
+    build:
+      context: ./frontend
+
+    container_name: opmas_frontend
+
+    restart: unless-stopped
+
+    depends_on:
+      - laravel
+
+    working_dir: /app
+
+    volumes:
+      - ./frontend:/app
+
+    ports:
+      - "3009:3000"
+
+  backend:
+
+    build:
+      context: ./backend
+
+    container_name: opmas_backend
+
+    restart: unless-stopped
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    working_dir: /app
+
+    volumes:
+      - ./backend:/app
+
+volumes:
+
+  mysql_data:

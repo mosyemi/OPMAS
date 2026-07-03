@@ -1,0 +1,55 @@
+services:
+
+  mysql:
+    image: mysql:8.4
+
+    restart: always
+
+    environment:
+      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_DATABASE: opmas_db
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  laravel:
+
+    build: ./laravel-api
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./laravel-api:/var/www
+
+    depends_on:
+      - mysql
+
+  frontend:
+
+    build: ./frontend
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - ./frontend:/app
+
+    depends_on:
+      - laravel
+
+  backend:
+
+    build: ./backend
+
+    volumes:
+      - ./backend:/app
+
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:
