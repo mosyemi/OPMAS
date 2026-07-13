@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import Layout from '@/Components/dashboard/Layout';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush, Legend } from 'recharts';
 
 const REFRESH_MS = 5000;
 
@@ -14,6 +14,7 @@ export default function DashboardPage({ initialLatest, initialHistory }) {
   const [latest, setLatest] = useState(initialLatest);
   const [history, setHistory] = useState(initialHistory || []);
   const [chartKey, setChartKey] = useState('O2_PURITY');
+  const [zoomRange, setZoomRange] = useState(null);
 
   // 1. Telemetry Polling: fetch fresh readings every 5 seconds
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function DashboardPage({ initialLatest, initialHistory }) {
         const res = await fetch(`/api/sensors/history?register=${chartKey}`);
         const data = await res.json();
         setHistory(data.data || []);
+        setZoomRange(null);
       } catch (e) {
         console.error('Failed to fetch history:', e);
       }
@@ -50,6 +52,16 @@ export default function DashboardPage({ initialLatest, initialHistory }) {
   const statusReadings = ['COMPRESSOR', 'BED_A_STATUS', 'BED_B_STATUS'];
 
   const find = (key) => readings.find(r => r.key === key);
+  const activeUnit = find(chartKey)?.unit || '';
+  const formatValue = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? `${numeric.toFixed(1)} ${activeUnit}` : `${value} ${activeUnit}`;
+  };
+  const chartData = (history || []).slice(-144);
+  const visibleData = zoomRange
+    ? chartData.slice(zoomRange.startIndex, zoomRange.endIndex + 1)
+    : chartData;
+  const gradientId = `gradient-${chartKey}`;
 
   return (
     <div style={styles.page}>
@@ -119,34 +131,71 @@ export default function DashboardPage({ initialLatest, initialHistory }) {
       {/* Trend Chart Card */}
       <div style={styles.chartCard}>
         <div style={styles.chartHeader}>
-          <h2 style={styles.chartTitle}>Trend History — {find(chartKey)?.label}</h2>
-          <div style={styles.chartTabs}>
-            {keyReadings.map(k => (
-              <button key={k} onClick={() => setChartKey(k)}
-                style={{ ...styles.tab, ...(k === chartKey ? styles.tabActive : {}) }}>
-                {find(k)?.label}
+          <div>
+            <h2 style={styles.chartTitle}>Trend History — {find(chartKey)?.label}</h2>
+            <p style={styles.chartSubtitle}>{`Display with unit: ${activeUnit}`}</p>
+          </div>
+          <div style={styles.chartControls}>
+            <div style={styles.chartToolbar}>
+              <button
+                onClick={() => setZoomRange(null)}
+                style={styles.zoomResetBtn}
+                disabled={!zoomRange}
+              >
+                Reset Zoom
               </button>
-            ))}
+              <div style={styles.chartInfo}>Area chart · Units shown</div>
+            </div>
+            <div style={styles.chartTabs}>
+              {keyReadings.map(k => (
+                <button key={k} onClick={() => setChartKey(k)}
+                  style={{ ...styles.tab, ...(k === chartKey ? styles.tabActive : {}) }}>
+                  {find(k)?.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={history.slice(-144)} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /> {/* Light grid lines */}
+        <ResponsiveContainer width="100%" height={320}>
+          <AreaChart data={visibleData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#159ed5" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#159ed5" stopOpacity={0.04} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis 
               dataKey="ts" 
               tickFormatter={v => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-              tick={{ fontSize: 11, fill: '#486581' }} 
+              tick={{ fontSize: 11, fill: '#486581' }}
+              axisLine={false}
+              tickLine={false}
             />
-            <YAxis tick={{ fontSize: 11, fill: '#486581' }} />
+            <YAxis tickFormatter={v => formatValue(v)} tick={{ fontSize: 11, fill: '#486581' }} axisLine={false} tickLine={false} width={70} tickMargin={8} />
             <Tooltip 
-              contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#102a43' }}
+              contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, color: '#f8fafc', boxShadow: '0 10px 15px -3px rgba(15, 23, 42, 0.25)' }}
               labelFormatter={v => new Date(v).toLocaleString()} 
-              formatter={v => [v, find(chartKey)?.label]} 
+              formatter={v => [formatValue(v), find(chartKey)?.label]} 
             />
             {chartKey === 'O2_PURITY' && <ReferenceLine y={90} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: 'Warning 90%', fill: '#f59e0b', fontSize: 10 }} />}
             {chartKey === 'O2_PURITY' && <ReferenceLine y={85} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Critical 85%', fill: '#ef4444', fontSize: 10 }} />}
-            <Line type="monotone" dataKey="value" stroke="#159ed5" dot={false} strokeWidth={2.5} /> {/* Kijabe Sky Blue Line */}
-          </LineChart>
+            <Area type="monotone" dataKey="value" stroke="#159ed5" strokeWidth={2.8} fill={`url(#${gradientId})`} dot={false} isAnimationActive animationDuration={700} />
+            <Legend verticalAlign="top" align="right" wrapperStyle={{ top: -8, right: 0, fontSize: 12, color: '#486581' }} />
+            <Brush
+              dataKey="ts"
+              height={20}
+              travellerWidth={8}
+              stroke="#159ed5"
+              startIndex={zoomRange?.startIndex ?? 0}
+              endIndex={zoomRange?.endIndex ?? Math.max(0, chartData.length - 1)}
+              onChange={(range) => {
+                if (range?.startIndex != null && range?.endIndex != null) {
+                  setZoomRange({ startIndex: range.startIndex, endIndex: range.endIndex });
+                }
+              }}
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -173,9 +222,17 @@ const styles = {
   statusLabel: { fontSize: 12, color: '#486581' },
   statusValue: { fontWeight: 'bold', fontSize: 14 },
   chartCard:   { background: '#ffffff', borderRadius: 10, padding: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' },
-  chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
+  chartHeader: { display: 'grid', gap: 10, marginBottom: 16 },
   chartTitle:  { margin: 0, color: '#102a43', fontSize: 15, fontWeight: '600' },
-  chartTabs:   { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  chartSubtitle:{ margin: '4px 0 0', color: '#64748b', fontSize: 12 },
+  chartControls:{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', minWidth: 0 },
+  chartToolbar:{ display: 'flex', gap: 8, flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center', minWidth: 0, paddingBottom: 2 },
+  chartInfo:{ color: '#334155', fontSize: 12, background: '#f8fafc', borderRadius: 999, padding: '6px 12px', border: '1px solid #e2e8f0' },
+  chartTabs:   { display: 'flex', gap: 6, flexWrap: 'nowrap', alignItems: 'center', overflowX: 'auto', minWidth: 0, paddingBottom: 2 },
+  chartTypeToggle:{ display: 'flex', gap: 4, padding: '2px', borderRadius: 999, background: '#f8fafc', border: '1px solid #e2e8f0' },
+  toggleBtn:{ padding: '4px 8px', borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#486581', fontFamily: 'Montserrat, sans-serif' },
+  toggleBtnActive:{ background: '#0f172a', color: '#fff' },
+  zoomResetBtn:{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#0f172a', fontFamily: 'Montserrat, sans-serif' },
   tab:         { padding: '4px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: 12, color: '#486581', fontFamily: 'Montserrat, sans-serif' },
   tabActive:   { background: '#159ed5', color: '#fff', border: '1px solid #159ed5' },
 };

@@ -71,20 +71,20 @@ export default function Layout({ children }) {
               {collectorAlive ? 'Collector Live' : 'Collector Down'}
             </span>
           </div>
-           {/* Added Sign Out button */}
-          <Link 
-            href="/logout" 
-            method="post" 
-            as="button" 
-            style={styles.logoutBtn}
-          >
-            Sign Out 🚪
-          </Link>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main style={styles.main}>
+        {/* Top bar with right-aligned Sign Out button */}
+        <div style={styles.topbar}>
+          <div />
+          <div>
+            <Link href="/logout" method="post" as="button" style={styles.topbarLogout}>
+              Sign Out 🚪
+            </Link>
+          </div>
+        </div>
         {!collectorAlive && (
           <div style={styles.alert}>
             ⚠ Collector is not responding — displayed data may be stale
@@ -130,6 +130,8 @@ const styles = {
     fontFamily: 'Montserrat, sans-serif',
     fontWeight: '500'
   },
+  topbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(16,42,67,0.06)', background: '#ffffff', boxShadow: '0 1px 0 rgba(16,42,67,0.02)' },
+  topbarLogout: { background: 'transparent', border: '1px solid #e6eef6', color: '#0b3b56', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 },
   main:     { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#f8fafc' }, // Light body background
   content:  { padding: 24, flex: 1 },
   alert:    { background: '#fef3c7', color: '#92400e', padding: '10px 20px', fontWeight: 'bold', fontSize: 13, borderBottom: '1px solid #fcd34d' },
